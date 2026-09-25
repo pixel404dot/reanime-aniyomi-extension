@@ -36,14 +36,22 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path("anime-extensions/settings.gradle.kts")
-          text = p.read_text()
-          text = text.replace("loadAllIndividualExtensions()", "// loadAllIndividualExtensions()")
+          lines = p.read_text().splitlines(keepends=True)
+          out = []
+          for line in lines:
+              stripped = line.strip()
+              if stripped == "loadAllIndividualExtensions()":
+                  out.append("// " + line.lstrip())
+              elif stripped == '// loadIndividualExtension("all", "jellyfin")':
+                  out.append('loadIndividualExtension("en", "reanime")\n')
+              else:
+                  out.append(line)
+          text = "".join(out)
           if 'loadIndividualExtension("en", "reanime")' not in text:
-              text = text.replace(
-                  '// loadIndividualExtension("all", "jellyfin")',
-                  'loadIndividualExtension("en", "reanime")',
-              )
+              raise SystemExit("failed to enable reanime module")
           p.write_text(text)
+          print("--- settings snippet ---")
+          print("".join(out[30:45]))
           PY
 
       - name: Set up Java
@@ -55,6 +63,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: List projects
+        working-directory: anime-extensions
+        run: ./gradlew projects --no-daemon | tail -50
+
       - name: Build debug APK
         working-directory: anime-extensions
         run: ./gradlew :src:en:reanime:assembleDebug --no-daemon --stacktrace
@@ -62,14 +74,16 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p dist
-          find anime-extensions/src/en/reanime/build/outputs/apk -name "*.apk" -exec cp {} dist/ \;
+          find anime-extensions -name "*.apk" -path "*/reanime/*" -exec cp {} dist/ \;
+          find anime-extensions -name "*.apk" | tee apk-list.txt
+          cp apk-list.txt dist/ || true
           ls -la dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: reanime-aniyomi-extension
-          path: dist/*.apk
+          path: dist/*
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
