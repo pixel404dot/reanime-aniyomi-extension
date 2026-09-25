@@ -1,0 +1,84 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          path: overlay
+
+      - name: Checkout Yuzono anime-extensions
+        uses: actions/checkout@v4
+        with:
+          repository: yuzono/anime-extensions
+          path: anime-extensions
+
+      - name: Copy Re:ANIME module
+        run: |
+          python3 -m pip install --quiet pillow
+          mkdir -p anime-extensions/src/en/reanime
+          cp -a overlay/src/en/reanime/. anime-extensions/src/en/reanime/
+          python3 overlay/.github/scripts/make_icon.py anime-extensions/src/en/reanime/res
+
+      - name: Load only this extension
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("anime-extensions/settings.gradle.kts")
+          text = p.read_text()
+          text = text.replace("loadAllIndividualExtensions()", "// loadAllIndividualExtensions()")
+          if 'loadIndividualExtension("en", "reanime")' not in text:
+              text = text.replace(
+                  '// loadIndividualExtension("all", "jellyfin")',
+                  'loadIndividualExtension("en", "reanime")',
+              )
+          p.write_text(text)
+          PY
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        working-directory: anime-extensions
+        run: ./gradlew :src:en:reanime:assembleDebug --no-daemon --stacktrace
+
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          find anime-extensions/src/en/reanime/build/outputs/apk -name "*.apk" -exec cp {} dist/ \;
+          ls -la dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reanime-aniyomi-extension
+          path: dist/*.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Re:ANIME extension ${{ github.run_number }}
+          files: dist/*.apk
+          generate_release_notes: false
+          body: |
+            Sideload this APK into Aniyomi or Anikku.
+            Trust the extension after install.
+            Browse / search / episodes work. Playback is not implemented yet.
