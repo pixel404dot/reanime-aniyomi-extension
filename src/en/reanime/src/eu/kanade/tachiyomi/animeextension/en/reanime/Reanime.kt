@@ -71,11 +71,9 @@ class Reanime : AnimeHttpLegacySource() {
 
     override fun searchAnimeParse(response: Response): AnimesPage = popularAnimeParse(response)
 
-    override fun animeDetailsRequest(anime: SAnime): Request =
-        GET("$apiUrl/anime/${anime.url.trimStart('/')}", headers)
+    override fun animeDetailsRequest(anime: SAnime): Request = GET("$apiUrl/anime/${anime.url.trimStart('/')}", headers)
 
-    override fun getAnimeUrl(anime: SAnime): String =
-        "$baseUrl/anime/${anime.url.trimStart('/')}"
+    override fun getAnimeUrl(anime: SAnime): String = "$baseUrl/anime/${anime.url.trimStart('/')}"
 
     override fun animeDetailsParse(response: Response): SAnime {
         val details = response.parseAs<AnimeDetails>()
@@ -160,7 +158,10 @@ class Reanime : AnimeHttpLegacySource() {
                     append("Episode $number")
                     episode.title
                         ?.takeIf { it.isNotBlank() && !it.equals("Episode $number", true) }
-                        ?.let { append(" - "); append(it.trim()) }
+                        ?.let {
+                            append(" - ")
+                            append(it.trim())
+                        }
                     val flags = buildList {
                         if (episode.subbed) add("SUB")
                         if (episode.dubbed) add("DUB")
@@ -173,9 +174,8 @@ class Reanime : AnimeHttpLegacySource() {
         }.sortedByDescending { it.episode_number }
     }
 
-    override fun videoListRequest(episode: SEpisode): Request {
-        return GET("$baseUrl/anime/${episode.url.substringBefore("/")}", headers)
-    }
+    override fun videoListRequest(episode: SEpisode): Request =
+        GET("$baseUrl/anime/${episode.url.substringBefore("/")}", headers)
 
     override fun videoListParse(response: Response): List<Video> {
         throw Exception(

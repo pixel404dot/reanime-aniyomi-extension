@@ -34,10 +34,9 @@ class Title(
     val native: String? = null,
     @SerialName("user_preferred") val userPreferred: String? = null,
 ) {
-    fun best(): String =
-        listOfNotNull(english, userPreferred, romaji, native)
-            .firstOrNull { it.isNotBlank() }
-            ?: "Unknown"
+    fun best(): String = listOfNotNull(english, userPreferred, romaji, native)
+        .firstOrNull { it.isNotBlank() }
+        ?: "Unknown"
 }
 
 @Serializable
